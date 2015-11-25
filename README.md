@@ -1,4 +1,4 @@
-[玩具 Haskell compiler]的一部份
+[玩具 Haskell compiler][compiler]的一部份
 
 詳見 https://gitter.im/CindyLinz/BuildYourOwnHaskellCompiler
 
