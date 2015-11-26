@@ -157,15 +157,28 @@ gadtCase exp alts = do
         exp' <- transExp exp
         alts' <- mapM transAlt alts
         return $ apply exp' alts'
-    where transAlt (Alt srcLoc pat rhs binds) = do
-              (consName, vars) <- transPApp pat
-              rhs' <- transRhs rhs
-              return $ lambda vars rhs'
-          transPApp (PApp qname pats) =
-              (,) <$> transQName qname <*> mapM transPat pats
+    where transAlt (Alt srcLoc pat rhs binds) =
+              case pat of
+                   PApp qname pats ->
+                       lambda <$> mapM transPat pats <*> transRhs rhs
+                   PList [] -> transRhs rhs
+          transPApp (PList []) = return ("cons", [])
 
 intCase :: Exp -> [Alt] -> Transpiler (Expr a)
-intCase exp alts = undefined
+intCase exp alts = do
+        exp' <- transExp exp
+        alts' <- transAlts alts
+        return $ apply (lambda ["##case"] alts') [exp']
+    where transAlts [] = return $ TVar "()"
+          transAlts (Alt srcLoc pat rhs binds:alts) = do
+              pred <- transPat pat
+              rhs' <- transRhs rhs
+              alts' <- transAlts alts
+              return $ apply (TVar "if") [ pred , rhs', alts' ]
+          transPat (PLit sign lit) = do
+              lit' <- transExp (Lit lit)
+              return $ apply (TVar "==") [TVar "##case", lit']
+          transPat PWildCard = return $ TVar "True"
 
 
 transExp :: Exp -> Transpiler (Expr a)
@@ -181,18 +194,25 @@ transExp (App e1 e2) =
 transExp (Case exp alts) =
         let Alt srcLoc pat rhs binds = head alts
         in case pat of
-                PApp {} -> gadtCase exp alts
-                PLit {} -> undefined
-
-
+                PLit {} -> intCase exp alts
+                _ -> gadtCase exp alts
 transExp (Lit literal) =
-    do return $ case literal of
-                     Char c -> TChar c
-                     Int i -> TInt i
-                     _ -> error $ show literal
+    return $ case literal of
+                  Char c -> TChar c
+                  Int i -> TInt i
+                  _ -> error $ show literal
 transExp (List []) = return $ TVar "nil"
 transExp (Paren exp) = transExp exp
 transExp (Con qname) = TVar <$> transQName qname
+transExp (Let (BDecls decls) exp) = do
+    (names, exprs) <- unzip <$> transDecls decls
+    exp' <- transExp exp
+    let gen x = TApp (TVar "##gen") (lambda names (TVar x))
+    return $
+        TApp (TApp (TVar "Y")
+                   (lambda ["##gen", "##tuple"] (apply (lambda names (apply (TVar "##tuple") exprs)) (map gen names))))
+             (lambda names exp')
+
 transExp _rest = error $ show _rest
 
 
@@ -203,11 +223,12 @@ transRhs _rest = error $ show _rest
 
 transPat :: Pat -> Transpiler TName
 transPat (PVar name) = transName name
+transPat PWildCard = return "_"
 transPat _rest = error $ show _rest
 
 transName :: Name -> Transpiler TName
 transName (Ident str) = return str
-transName _rest = error $ show _rest
+transName (Symbol str) = return str
 
 transQName :: QName -> Transpiler TName
 transQName (UnQual name) = transName name
