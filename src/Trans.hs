@@ -1,6 +1,4 @@
 {-# LANGUAGE GADTs #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE NamedFieldPuns #-}
 {-# LANGUAGE BangPatterns #-}
 module Trans
@@ -14,6 +12,7 @@ import Language.Haskell.Exts.Syntax
 import Language.Haskell.Exts.Fixity (preludeFixities)
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Class
+import Data.Foldable (concat)
 import Data.Map (Map)
 import Data.Aeson (ToJSON, toJSON)
 import qualified Data.Aeson as Aeson
@@ -216,7 +215,7 @@ transQName (Special Cons) = return "cons"
 transQName _rest = error $ show _rest
 
 transDecls :: [Decl] -> Transpiler [(TName, Expr a)]
-transDecls decls = (fmap concat) . sequence $ map transDecl decls
+transDecls decls = fmap concat . sequence $ map transDecl decls
 
 transDecl :: Decl -> Transpiler [(TName, Expr a)]
 transDecl (PatBind srcloc pat rhs binds) = do
@@ -227,8 +226,8 @@ transDecl (GDataDecl srcLoc dataOrNew context name tyVarBinds kind gadtDecls der
     do  dataName <- transName name
         consNames <- mapM consName gadtDecls
         let go (GadtDecl srcLoc name nameTyPairs ty) = do
-                let varsCount = (countVars 0 ty)
-                let vars  = map show $ take varsCount [0..]
+                let varsCount = countVars 0 ty
+                let vars = map show $ take varsCount [0..]
                 name' <- transName name
                 addCons name' varsCount
                 return (name', lambda (vars ++ consNames)
