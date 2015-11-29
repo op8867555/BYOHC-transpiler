@@ -101,7 +101,7 @@ parseMode filename = ParseMode
 data Expr a = TVar TName
             | TAbs TName (Expr a)
             | TApp (Expr a) (Expr a)
-            | TPrim String String
+            | TPrim String String -- Primitive Type and Value
             | TChar Char
             | TInt Integer
             deriving (Show)
