@@ -104,6 +104,7 @@ data Expr a = TVar TName
             | TPrim String String -- Primitive Type and Value
             | TChar Char
             | TInt Integer
+            | TDecl TName (Expr a) -- 需要 Y 的 top-level declaration
             deriving (Show)
 
 
@@ -114,6 +115,7 @@ instance ToJSON a => ToJSON (Expr a) where
     toJSON (TPrim typ raw) = toJSON [toJSON "prim", toJSON typ, toJSON raw]
     toJSON (TChar c) = toJSON [toJSON "prim", toJSON "str", toJSON c]
     toJSON (TInt i) = toJSON [toJSON "prim", toJSON "int", toJSON i]
+    toJSON (TDecl name exp) = toJSON $ TApp (TVar "Y") (TAbs name exp)
 
 data TransState =
         TransState { cons :: Map TName Int
@@ -207,11 +209,15 @@ transExp (Con qname) = TVar <$> transQName qname
 transExp (Let (BDecls decls) exp) = do
     (names, exprs) <- unzip <$> transDecls decls
     exp' <- transExp exp
+    -- 把 多個用到Y的函數 轉換成 一個用到Y的函數
+    let exprs' = map extractDecl exprs
     let gen x = TApp (TVar "##gen") (lambda names (TVar x))
     return $
         TApp (TApp (TVar "Y")
                    (lambda ["##gen", "##tuple"] (apply (lambda names (apply (TVar "##tuple") exprs)) (map gen names))))
              (lambda names exp')
+    where extractDecl (TDecl name exp) = exp
+          extractDecl exp = exp
 
 transExp _rest = error $ show _rest
 
@@ -242,7 +248,8 @@ transDecl :: Decl -> Transpiler [(TName, Expr a)]
 transDecl (PatBind srcloc pat rhs binds) = do
     pat' <- transPat pat
     rhs' <- transRhs rhs
-    return [(pat', rhs')]
+    -- FIXME: 清一色先加上 Y
+    return [(pat', TDecl pat' rhs')]
 transDecl (GDataDecl srcLoc dataOrNew context name tyVarBinds kind gadtDecls derivings) =
     do  dataName <- transName name
         consNames <- mapM consName gadtDecls
