@@ -3,6 +3,10 @@
 {-# LANGUAGE BangPatterns #-}
 module Trans
     ( transpile
+    , transModule
+    , build
+    , parseFile
+    , evalTranspiler
     , Expr(..)
     , TName
     ) where
@@ -264,13 +268,28 @@ transDecl (GDataDecl srcLoc dataOrNew context name tyVarBinds kind gadtDecls der
         consName (GadtDecl srcLoc name nameTyPairs ty) = transName name
 transDecl _rest = error $ show _rest
 
-transpile :: String -> String -> IO [(TName, Expr a)]
-transpile filename input = evalStateT trans emptyTransState
-    where trans =
-            case parseWithMode (parseMode filename) input of
-              ParseOk ast -> transModule ast
-              ParseFailed srcLoc err -> error $ show srcLoc ++ ": " ++ err
 countVars :: Type -> Int
 countVars = count 0 where
     count !n (TyFun t1 t2) =  count (n+1) t2
     count !n _ = n
+
+parseFile :: String -> String -> Transpiler Module
+parseFile filename input = return ast
+    where
+        parsed = parseWithMode (parseMode filename) input :: ParseResult Module
+        ast = case parsed of
+                   ParseOk a -> a
+                   ParseFailed srcLoc err -> error $ show srcLoc ++ ": " ++ err
+
+build :: [(TName, Expr a)] -> Transpiler (Expr a)
+build bindings = return $
+    makeLet bindings $ TApp (TVar "runIO") (TVar "main")
+
+transpile :: String -> String -> Transpiler (Expr a)
+transpile filename input =
+        parseFile filename input
+    >>= transModule
+    >>= build
+
+evalTranspiler :: Transpiler a -> IO a
+evalTranspiler t = evalStateT t emptyTransState

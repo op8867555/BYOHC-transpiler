@@ -36,11 +36,13 @@ main =
         (name, input) <- case file of
                            Nothing -> (,) <$> return "<interact>" <*> getContents
                            Just x -> (,) <$> return x <*> readFile x
-        bindings <- transpile name input :: IO [(TName, Expr ())]
+        let parsed = parseFile name input
+        let bindings = parsed >>= transModule
+        let program = bindings >>= build
         case outputLevel of
-          Json -> BS.putStrLn . encode . toJSON $ map toJSON bindings
-          Expr -> mapM_ print bindings
-          _ -> error "not implemented yet"
+          Ast -> print =<< evalTranspiler parsed
+          Json -> BS.putStrLn . encode . toJSON =<< (evalTranspiler program :: IO (Expr ()))
+          Expr -> mapM_ print =<< evalTranspiler bindings
 
     where opts = info (helper <*> parser)
                     (fullDesc
