@@ -202,6 +202,9 @@ transExp (Lit literal) =
     return $ case literal of
                   Char c -> TChar c
                   Int i -> TInt i
+                  String s -> foldr (\c cs -> apply (TVar "cons") [c, cs])
+                                    (TVar "nil")
+                                    (map TChar s)
                   _ -> error $ show literal
 transExp (List []) = return $ TVar "nil"
 transExp (Paren exp) = transExp exp
