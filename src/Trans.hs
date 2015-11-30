@@ -257,7 +257,7 @@ transDecl (GDataDecl srcLoc dataOrNew context name tyVarBinds kind gadtDecls der
     do  dataName <- transName name
         consNames <- mapM consName gadtDecls
         let go (GadtDecl srcLoc name nameTyPairs ty) = do
-                let varsCount = countVars 0 ty
+                let varsCount = countVars ty
                 let vars = map show $ take varsCount [0..]
                 name' <- transName name
                 addCons name' varsCount
@@ -266,8 +266,6 @@ transDecl (GDataDecl srcLoc dataOrNew context name tyVarBinds kind gadtDecls der
         mapM go gadtDecls
     where
         consName (GadtDecl srcLoc name nameTyPairs ty) = transName name
-        countVars !n (TyFun t1 t2) =  countVars (n+1) t2
-        countVars !n _ = n
 transDecl _rest = error $ show _rest
 
 transpile :: String -> String -> IO [(TName, Expr a)]
@@ -276,3 +274,7 @@ transpile filename input = evalStateT trans emptyTransState
             case parseWithMode (parseMode filename) input of
               ParseOk ast -> transModule ast
               ParseFailed srcLoc err -> error $ show srcLoc ++ ": " ++ err
+countVars :: Type -> Int
+countVars = count 0 where
+    count !n (TyFun t1 t2) =  count (n+1) t2
+    count !n _ = n
