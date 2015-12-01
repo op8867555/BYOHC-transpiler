@@ -17,9 +17,7 @@ $ stack exec transpiler-exe
 lambda = 'λ'
 main = putChar lambda
 ^D
-[["lambda",["prim","str","λ"]],
- ["main",["app",["var","putChar"],["var","lambda"]]]]
-# 重新排版過的結果
+["app",["app",["var","Y"],["lam","##gen",["lam","##tuple",["app",["app",["lam","lambda",["lam","main",["app",["app",["var","##tuple"],["prim","str","λ"]],["app",["var","putChar"],["var","lambda"]]]]],["app",["var","##gen"],["lam","lambda",["lam","main",["var","lambda"]]]]],["app",["var","##gen"],["lam","lambda",["lam","main",["var","main"]]]]]]]],["lam","lambda",["lam","main",["app",["var","runIO"],["var","main"]]]]]
 ```
 
 - 可以跟[玩具 Haskell compiler][compiler] 的 `LC_db_lazy_env.py` 結合使用
