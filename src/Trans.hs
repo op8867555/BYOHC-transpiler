@@ -16,7 +16,7 @@ import Language.Haskell.Exts.Syntax
 import Language.Haskell.Exts.Fixity (preludeFixities)
 import Control.Monad.Trans.State
 import Control.Monad.Trans.Class
-import Data.Foldable (concat)
+import Data.Foldable (concat, foldrM)
 import Data.Map (Map)
 import Data.Aeson (ToJSON, toJSON)
 import qualified Data.Aeson as Aeson
@@ -208,7 +208,11 @@ transExp (Lit literal) =
                                     (TVar "nil")
                                     (map TChar s)
                   _ -> error $ show literal
-transExp (List []) = return $ TVar "nil"
+transExp (List xs) = do
+    xs' <- mapM transExp xs
+    return $ foldr (\x xs -> apply (TVar "cons") [x, xs])
+                   (TVar "nil")
+                   xs'
 transExp (Paren exp) = transExp exp
 transExp (Con qname) = TVar <$> transQName qname
 transExp (Let (BDecls decls) exp) = do
