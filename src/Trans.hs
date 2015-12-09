@@ -219,6 +219,11 @@ transExp (Let (BDecls decls) exp) = do
     bindings <- transDecls decls
     exp' <- transExp exp
     return $ makeLet bindings exp'
+transExp (InfixApp lexp qop rexp) = do
+    qop' <- transQOp qop
+    lexp' <- transExp lexp
+    rexp' <- transExp rexp
+    return $ apply (TVar qop') [lexp', rexp']
 transExp _rest = error $ show _rest
 
 makeLet :: [(TName, Expr a)] -> Expr a -> Expr a
@@ -249,6 +254,10 @@ transQName (UnQual name) = transName name
 transQName (Special Cons) = return "cons"
 transQName _rest = error $ show _rest
 
+transQOp :: QOp -> Transpiler TName
+transQOp (QVarOp qname) = transQName qname
+transQOp (QConOp qname) = transQName qname
+
 transDecls :: [Decl] -> Transpiler [(TName, Expr a)]
 transDecls decls = fmap concat . sequence $ map transDecl decls
 
@@ -275,6 +284,8 @@ transDecl (ForImp srcLoc callConv safety str name ty) =
     do
         name' <- transName name
         return [(name', TPrim "ffi" str)]
+
+transDecl (InfixDecl srcLoc assoc priority ops) = return []
 transDecl _rest = error $ show _rest
 
 countVars :: Type -> Int
