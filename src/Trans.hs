@@ -270,6 +270,11 @@ transDecl (GDataDecl srcLoc dataOrNew context name tyVarBinds kind gadtDecls der
         mapM go gadtDecls
     where
         consName (GadtDecl srcLoc name nameTyPairs ty) = transName name
+
+transDecl (ForImp srcLoc callConv safety str name ty) =
+    do
+        name' <- transName name
+        return [(name', TPrim "ffi" str)]
 transDecl _rest = error $ show _rest
 
 countVars :: Type -> Int
