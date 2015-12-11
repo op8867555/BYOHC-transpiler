@@ -27,4 +27,13 @@ $ stack exec transpiler-exe hello.hs | python LC_db_lazy_env.py
 Hello, World!
 ```
 
+# Examples
+
+```
+$ cd example/ffi/
+$ stack exec transpiler-exe hello.hs | PYTHONPATH=. python LC_db_lazy_env.py -m hello
+hello
+```
+
+
 [compiler]: https://github.com/op8867555/BYOHC
