@@ -99,6 +99,7 @@ parseMode filename = ParseMode
   , ignoreLanguagePragmas = True
   , ignoreLinePragmas = False
   , fixities = Just preludeFixities
+  , ignoreFunctionArity = False
   }
 
 
