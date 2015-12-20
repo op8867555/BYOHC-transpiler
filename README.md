@@ -35,5 +35,43 @@ $ stack exec transpiler-exe hello.hs | PYTHONPATH=. python LC_db_lazy_env.py -m 
 hello
 ```
 
+# Desugar Passes
+
+## If
+
+將
+
+```haskell
+if _a
+then _b
+else _c
+```
+
+轉成
+
+```haskell
+case _a of
+    True -> _b
+    False -> _c
+```
+
+
+## Where
+
+將
+
+```haskell
+x = y + z where
+  y = _y
+  z = _z
+```
+
+轉換成
+
+```haskell
+x = let y = _y
+        z = _z
+    in y + z
+```
 
 [compiler]: https://github.com/op8867555/BYOHC
