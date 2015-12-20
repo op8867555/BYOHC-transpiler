@@ -21,6 +21,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 
 import Desugar.If (desugarIf)
+import Desugar.Where (desugarWhere)
 
 parseMode filename = ParseMode
   { parseFilename = filename
@@ -312,7 +313,7 @@ transpile filename input =
     >>= build
 
 desugar :: Module l -> Transpiler (Module l)
-desugar = return . desugarIf
+desugar = return . desugarIf . desugarWhere
 
 evalTranspiler :: Transpiler a -> IO a
 evalTranspiler t = evalStateT t emptyTransState
