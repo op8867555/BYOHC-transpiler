@@ -37,7 +37,8 @@ main =
                            Nothing -> (,) <$> return "<interact>" <*> getContents
                            Just x -> (,) <$> return x <*> readFile x
         let parsed = parseFile name input
-        let bindings = parsed >>= transModule
+        let desugared = parsed >>= desugar
+        let bindings = desugared >>= transModule
         let program = bindings >>= build
         case outputLevel of
           Ast -> print =<< evalTranspiler parsed

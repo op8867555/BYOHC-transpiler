@@ -4,6 +4,7 @@
 module Trans
     ( transpile
     , transModule
+    , desugar
     , build
     , parseFile
     , evalTranspiler
@@ -18,6 +19,8 @@ import Data.Map (Map)
 import Data.Aeson (ToJSON, toJSON)
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
+
+import Desugar.If (desugarIf)
 
 parseMode filename = ParseMode
   { parseFilename = filename
@@ -304,8 +307,12 @@ build bindings = return $
 transpile :: String -> String -> Transpiler (Expr a)
 transpile filename input =
         parseFile filename input
+    >>= desugar
     >>= transModule
     >>= build
+
+desugar :: Module l -> Transpiler (Module l)
+desugar = return . desugarIf
 
 evalTranspiler :: Transpiler a -> IO a
 evalTranspiler t = evalStateT t emptyTransState
