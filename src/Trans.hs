@@ -150,7 +150,7 @@ lambda :: [TName] -> Expr a -> Expr a
 lambda vars body = foldr TAbs body vars
 
 apply :: Expr a -> [Expr a] -> Expr a
-apply f vs = foldl TApp f vs
+apply = foldl TApp
 
 transModule :: Module l -> Transpiler [(TName, Expr a)]
 transModule (Module srcloc head pragma importDecls decls) =
@@ -205,9 +205,9 @@ transExp (Lit l literal) =
     return $ case literal of
                   Char l c s -> TChar c
                   Int l i s-> TInt i
-                  String l s s' -> foldr (\c cs -> apply (TVar "cons") [c, cs])
-                                    (TVar "nil")
-                                    (map TChar s)
+                  String l s s' -> foldr ((\c cs -> apply (TVar "cons") [c, cs]) . TChar)
+                                         (TVar "nil")
+                                         s
 transExp (List l xs) = do
     xs' <- mapM transExp xs
     return $ foldr (\x xs -> apply (TVar "cons") [x, xs])
