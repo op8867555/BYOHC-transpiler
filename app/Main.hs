@@ -41,9 +41,9 @@ main =
         let bindings = desugared >>= transModule
         let program = bindings >>= build
         case outputLevel of
-          Ast -> print =<< evalTranspiler parsed
-          Json -> BS.putStrLn . encode . toJSON =<< (evalTranspiler program :: IO (Expr ()))
-          Expr -> mapM_ print =<< evalTranspiler bindings
+          Ast -> print $ evalTranspiler parsed
+          Json -> BS.putStrLn . encode . toJSON $ (evalTranspiler program :: Expr ())
+          Expr -> mapM_ print $ evalTranspiler bindings
 
     where opts = info (helper <*> parser)
                     (fullDesc
