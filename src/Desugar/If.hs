@@ -1,3 +1,17 @@
+{-
+這個 pass 將
+@
+if _a
+then _b
+else _c
+@
+轉換成
+@
+case _a of
+     True -> _b
+     False -> _c
+@
+-}
 module Desugar.If (desugarIf) where
 
 import Language.Haskell.Exts.Annotated.Build
@@ -246,6 +260,7 @@ transExp (Lambda l pat exp) =
     Lambda l (fmap transPat pat) (transExp exp)
 transExp (Let l binds exp) =
     Let l (transBinds binds) (transExp exp)
+-- desugar: if
 transExp (If l exp1 exp2 exp3) =
     caseE l exp1' [ alt l2 (pApp l2 (name l2 "True")  []) exp2'
                   , alt l3 (pApp l3 (name l3 "False") []) exp3' ]
