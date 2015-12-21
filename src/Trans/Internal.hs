@@ -10,8 +10,7 @@ import Data.Aeson (ToJSON, toJSON)
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 
-import Desugar.If (desugarIf)
-import Desugar.Where (desugarWhere)
+import Desugar
 
 parseMode filename = ParseMode
   { parseFilename = filename

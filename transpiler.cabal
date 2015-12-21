@@ -15,7 +15,10 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Trans, Desugar.If, Desugar.Where
+  exposed-modules:     Trans
+                     , Desugar
+                     , Desugar.If
+                     , Desugar.Where
   other-modules:       Trans.Internal
   build-depends:       base >= 4.7 && < 5
                      , haskell-src-exts
