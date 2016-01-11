@@ -1,7 +1,6 @@
 module Trans
     ( transpile
     , transModule
-    , desugar
     , build
     , parseFile
     , evalTranspiler

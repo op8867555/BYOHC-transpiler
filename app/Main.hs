@@ -2,6 +2,7 @@
 module Main where
 
 import Trans
+import Desugar
 import System.IO (getContents)
 import System.Environment (getArgs)
 import Data.Aeson (encode, toJSON)
@@ -37,7 +38,7 @@ main =
                            Nothing -> (,) <$> return "<interact>" <*> getContents
                            Just x -> (,) <$> return x <*> readFile x
         let parsed = parseFile name input
-        let desugared = parsed >>= desugar
+        let desugared = parsed >>= \m -> return $ runDesugarM (desugar m) emptyDesugarState
         let bindings = desugared >>= transModule
         let program = bindings >>= build
         case outputLevel of

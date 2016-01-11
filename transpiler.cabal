@@ -17,6 +17,7 @@ library
   hs-source-dirs:      src
   exposed-modules:     Trans
                      , Desugar
+                     , Desugar.Monad
                      , Desugar.If
                      , Desugar.Where
   other-modules:       Trans.Internal

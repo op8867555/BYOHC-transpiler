@@ -10,8 +10,6 @@ import Data.Aeson (ToJSON, toJSON)
 import qualified Data.Aeson as Aeson
 import qualified Data.Map as Map
 
-import Desugar
-
 parseMode filename = ParseMode
   { parseFilename = filename
   , baseLanguage = Haskell2010
@@ -274,12 +272,8 @@ build bindings = return $
 transpile :: String -> String -> Transpiler (Expr a)
 transpile filename input =
         parseFile filename input
-    >>= desugar
     >>= transModule
     >>= build
-
-desugar :: Module l -> Transpiler (Module l)
-desugar = return . desugarIf . desugarWhere
 
 evalTranspiler :: Transpiler a -> a
 evalTranspiler = runIdentity

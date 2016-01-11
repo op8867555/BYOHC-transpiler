@@ -1,7 +1,12 @@
 module Desugar
-    ( module Desugar.If
-    , module Desugar.Where
-    ) where
+    ( module Desugar.Monad
+    , desugar
+    )
+where
 
-import Desugar.If
-import Desugar.Where
+import Desugar.Monad
+import Desugar.If (desugarIf)
+import Desugar.Where (desugarWhere)
+import Control.Monad
+
+desugar = desugarIf >=> desugarWhere
