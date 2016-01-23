@@ -36,8 +36,28 @@ import Data.Maybe (fromMaybe)
 type LocalEnv = Map (Name ()) String
 
 desugarRename :: Module l -> DesugarM (Module l)
-desugarRename = transModule M.empty
-
+desugarRename = transModule initLocals
+    -- TODO: 在實作模組之前，將 Prelude 的名字直接寫在
+    where initLocals =
+            M.fromList $ syms ++ idents
+          idents = map ide [ "putStrLn"
+                           , "putChar"
+                           , "const"
+                           , "fst"
+                           , "snd"
+                           , "div"
+                           , "mod"
+                           , "head"
+                           , "tail"
+                           , "True"
+                           , "False"]
+          syms = map sym [ "+"
+                         , "-"
+                         , "*"
+                         , "=="
+                         ]
+          ide a = (Ident () a, "Prelude." ++ a)
+          sym a = (Symbol () a, "Prelude." ++ a)
 lookup :: Name l -> LocalEnv -> DesugarM String
 lookup name@(extractName -> n) locals = do
     tryGlobal <- lookupGlobal name
@@ -71,6 +91,8 @@ withPat locals (PParen l pat) =
 withPat locals (PApp l qname pats) = do
     (pats', locals') <- withPats locals pats
     return (PApp l qname pats', locals')
+withPat locals p@PLit{} = return (p, locals)
+withPat locals p@PWildCard{} = return (p, locals)
 withPat locals p = error $ show $ void p
 
 withPats :: LocalEnv -> [Pat l] -> DesugarM ([Pat l], LocalEnv)

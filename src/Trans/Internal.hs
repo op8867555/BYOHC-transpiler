@@ -133,23 +133,23 @@ gadtCase exp alts = do
                    PApp l qname pats ->
                        lambda <$> mapM transPat pats <*> transRhs rhs
                    PList l [] -> transRhs rhs
-          transPApp (PList l []) = return ("cons", [])
+          transPApp (PList l []) = return ("Prelude.cons", [])
 
 intCase :: Exp l -> [Alt l] -> Transpiler (Expr a)
 intCase exp alts = do
         exp' <- transExp exp
         alts' <- transAlts alts
         return $ apply (lambda ["##case"] alts') [exp']
-    where transAlts [] = return $ TVar "()"
+    where transAlts [] = return $ TVar "Prelude.()"
           transAlts (Alt srcLoc pat rhs binds:alts) = do
               pred <- transPat pat
               rhs' <- transRhs rhs
               alts' <- transAlts alts
-              return $ apply (TVar "if") [ pred , rhs', alts' ]
+              return $ apply (TVar "Prelude.if") [ pred , rhs', alts' ]
           transPat (PLit l sign lit) = do
               lit' <- transExp (Lit l lit)
-              return $ apply (TVar "==") [TVar "##case", lit']
-          transPat (PWildCard l) = return $ TVar "True"
+              return $ apply (TVar "Prelude.==") [TVar "##case", lit']
+          transPat (PWildCard l) = return $ TVar "Prelude.True"
 
 
 transExp :: Exp l -> Transpiler (Expr a)
@@ -171,13 +171,13 @@ transExp (Lit l literal) =
     return $ case literal of
                   Char l c s -> TChar c
                   Int l i s-> TInt i
-                  String l s s' -> foldr ((\c cs -> apply (TVar "cons") [c, cs]) . TChar)
-                                         (TVar "nil")
+                  String l s s' -> foldr ((\c cs -> apply (TVar "Prelude.cons") [c, cs]) . TChar)
+                                         (TVar "Prelude.nil")
                                          s
 transExp (List l xs) = do
     xs' <- mapM transExp xs
-    return $ foldr (\x xs -> apply (TVar "cons") [x, xs])
-                   (TVar "nil")
+    return $ foldr (\x xs -> apply (TVar "Prelude.cons") [x, xs])
+                   (TVar "Prelude.nil")
                    xs'
 transExp (Paren l exp) = transExp exp
 transExp (Con l qname) = TVar <$> transQName qname
@@ -193,7 +193,7 @@ transExp (InfixApp l lexp qop rexp) = do
 
 makeLet :: [(TName, Expr a)] -> Expr a -> Expr a
 makeLet bindings exp =
-    TApp (TApp (TVar "Y")
+    TApp (TApp (TVar "Prelude.Y")
                (lambda ["##gen", "##tuple"] (apply (lambda names (apply (TVar "##tuple") exprs)) (map gen names))))
          (lambda names exp)
     where
@@ -217,7 +217,7 @@ transDeclHead (DHead l name) = transName name
 
 transQName :: QName l -> Transpiler TName
 transQName (UnQual l name) = transName name
-transQName (Special l (Cons l')) = return "cons"
+transQName (Special l (Cons l')) = return "Prelude.cons"
 
 transQOp :: QOp l -> Transpiler TName
 transQOp (QVarOp l qname) = transQName qname
@@ -267,7 +267,7 @@ parseFile filename input = return ast
 
 build :: [(TName, Expr a)] -> Transpiler (Expr a)
 build bindings = return $
-    makeLet bindings $ TApp (TVar "runIO") (TVar "main")
+    makeLet bindings $ TApp (TVar "Prelude.runIO") (TVar "Main.main")
 
 transpile :: String -> String -> Transpiler (Expr a)
 transpile filename input =
