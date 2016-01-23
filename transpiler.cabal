@@ -20,6 +20,9 @@ library
                      , Desugar.Monad
                      , Desugar.If
                      , Desugar.Where
+                     , Desugar.Rename
+                     , Desugar.Rename.CollectGlobal
+                     , Desugar.Rename.Rename
   other-modules:       Trans.Internal
   build-depends:       base >= 4.7 && < 5
                      , haskell-src-exts
