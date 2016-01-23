@@ -23,6 +23,9 @@ mkN :: String -> HSE.Name
 mkN = HSE.name
 
 
+annType :: HSE.Type
+annType = mkT "l"
+
 customArgs :: [(HSE.Name, HSE.Type)]
 customArgs = []
 
@@ -54,7 +57,7 @@ desugarFn :: [HSE.Decl]
 desugarFn =
     [ HSE.TypeSig emptySrcLoc [mkN "desugarPass"] (foldr1 HSE.TyFun $ map snd customArgs ++ [t, t'])
     , HSE.patBind emptySrcLoc (HSE.pvar $ mkN "desugarPass") (HSE.var $ mkN "transModule") ]
-        where t = HSE.TyApp (mkT "Module") (mkT "l")
+        where t = HSE.TyApp (mkT "Module") annType
               t' = HSE.TyApp (mkT "DesugarM") t
 
 
@@ -73,7 +76,7 @@ genFun = \case
             , HSE.FunBind $ map (genMatch ("trans" ++ name)) cons
             ] where t = case slots of
                             [] -> mkT name
-                            [_] -> HSE.TyApp (mkT name) (mkT "l")
+                            [_] -> HSE.TyApp (mkT name) annType
                     t' = HSE.TyApp (mkT "DesugarM") t
 
 
