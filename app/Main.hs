@@ -10,8 +10,9 @@ import qualified Data.ByteString.Lazy.Char8 as BS
 import Data.List (intercalate)
 import Data.Maybe (catMaybes)
 import Options.Applicative
+import Language.Haskell.Exts.Annotated hiding (parseFile)
 
-data OutputLevel = Ast | Expr | Json
+data OutputLevel = Ast | Desugared | Expr | Json
                  deriving (Show, Read)
 
 data Options =
@@ -27,7 +28,7 @@ parser =
                                  <> metavar "FILE")
                      <|> (argument str (metavar "FILE")))
         <*> (option auto (long "output-level"
-                          <> help "output-level: Ast, Expr, Json")
+                          <> help "output-level: Ast, Desugared, Expr, Json")
              <|> pure Json)
 
 main :: IO ()
@@ -43,6 +44,7 @@ main =
         let program = bindings >>= build
         case outputLevel of
           Ast -> print $ evalTranspiler parsed
+          Desugared -> putStrLn . prettyPrint $ evalTranspiler desugared
           Json -> BS.putStrLn . encode . toJSON $ (evalTranspiler program :: Expr ())
           Expr -> mapM_ print $ evalTranspiler bindings
 
