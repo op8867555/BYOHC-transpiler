@@ -20,6 +20,9 @@ library
                      , Desugar.Monad
                      , Desugar.If
                      , Desugar.Where
+                     , Desugar.GADT
+                     , Desugar.Case
+                     , Desugar.Case.AltCompletion
                      , Desugar.Rename
                      , Desugar.Rename.CollectGlobal
                      , Desugar.Rename.Rename
