@@ -35,43 +35,34 @@ $ stack exec transpiler-exe hello.hs | PYTHONPATH=. python LC_db_lazy_env.py -m 
 hello
 ```
 
-# Desugar Passes
+# Desugar
 
-## If
+- 用 `--output-level Desugared` 來看 desugar 過的 code
 
-將
-
-```haskell
-if _a
-then _b
-else _c
+```
+$ stack exec transpiler -- --output-level Desugared < example/Case.hs
+data Main.T where
+        Main.A :: Main.T
+        Main.B :: Main.T -> Main.T
+Main.f
+  = \ x_0 ->
+      let fallback_2 = 0 in
+        case x_0 of
+            Main.A -> fallback_2
+            Main.B y_1 -> (Prelude.+) 1 (Main.f y_1)
+Main.main
+  = Prelude.putStrLn
+      (case (Main.f (Main.B Main.A)) of
+           0 -> "0"
+           1 -> "1")
 ```
 
-轉成
+- 已實作
 
-```haskell
-case _a of
-    True -> _b
-    False -> _c
-```
-
-
-## Where
-
-將
-
-```haskell
-x = y + z where
-  y = _y
-  z = _z
-```
-
-轉換成
-
-```haskell
-x = let y = _y
-        z = _z
-    in y + z
-```
+  - if
+  - where
+  - renamer
+  - 部份 case
+    -  alts reorder & completion
 
 [compiler]: https://github.com/op8867555/BYOHC
