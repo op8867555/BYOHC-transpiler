@@ -44,6 +44,7 @@ executable transpiler-exe
                      , bytestring
                      , aeson
                      , optparse-applicative
+                     , haskell-src-exts
   default-language:    Haskell2010
 
 executable gen-template-exe
