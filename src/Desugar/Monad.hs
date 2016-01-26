@@ -6,24 +6,55 @@ import Language.Haskell.Exts.Annotated
 
 import qualified Data.Map as M
 import Data.Map (Map)
+import Data.Maybe (fromMaybe)
+import Data.List (elemIndex)
 
 type DesugarM a = State DesugarState a
 
+type ConData = ( String  -- constructor name
+               , Int     -- constructor args count
+               )
+
 data DesugarState =
-    DesugarState { freshCount :: Int
+    DesugarState { cons :: Map String String -- ConName to Type
+                 , dataTypes :: Map String [ConData] -- Type to ConData
+                 , freshCount :: Int
                  , globals :: Map (Name ()) (SrcSpanInfo, String)
                  , moduleName :: String
                  } deriving Show
 
 emptyDesugarState :: DesugarState
 emptyDesugarState =
-    DesugarState { freshCount = 0
+    DesugarState { cons = M.fromList [ (prelude "True", prelude "Bool")
+                                     , (prelude "False", prelude "Bool")
+                                     ]
+                 , dataTypes =
+                     M.fromList
+                         [(prelude "Bool", [ (prelude "True", 0)
+                                           , (prelude "False", 0)])]
+                 , freshCount = 0
                  , globals = M.empty
                  , moduleName = ""
                  }
+  where prelude = ("Prelude." ++)
 
 runDesugarM :: DesugarM a -> DesugarState -> a
 runDesugarM = evalState
+
+addCons :: String -> [ConData] -> DesugarM ()
+addCons typeName conDatas =
+    modify $ \st@DesugarState{cons, dataTypes} ->
+        st { cons = M.union cons $
+                        M.fromList [ (conName, typeName) | (conName, _) <- conDatas ]
+           , dataTypes = M.insert typeName conDatas dataTypes
+           }
+
+lookupCons :: String -> DesugarM [ConData]
+lookupCons conName = do
+    DesugarState{cons, dataTypes} <- get
+    return $ fromMaybe (error $ "lookupCons:" ++ show conName) $ do
+        typeName <- M.lookup conName cons
+        M.lookup typeName dataTypes
 
 extractName :: Name l -> String
 extractName (Ident _ s) = s
