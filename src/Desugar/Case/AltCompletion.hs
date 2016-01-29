@@ -477,7 +477,7 @@ transExp (Case l expL altLs)
        else do
            fallbackName <- name l <$> freshVar (Ident l "fallback")
            let fallbackVar = var l fallbackName
-               (maybeFallback, pairs) = mkPairs altLs
+               (maybeFallback, pairs) = mkPairs altLs'
                fallbackE = fromMaybe defaultFallbackE maybeFallback
                defaultFallbackE = app l (function l "Prelude.error") (strE l "matching failed")
            fallbackE' <- transExp fallbackE
