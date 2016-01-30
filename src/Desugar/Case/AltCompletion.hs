@@ -14,6 +14,7 @@ e 的 type 要是 primitive type 或是 GADT ， GADT 時需滿足下列條件�
 
     1. alts 的 pattern 要是 PApp 或是 PWildCard
     2. PApp 中出現的 data constructor 不能重複
+    3. 一定要有一個 wildcard 的 alt 作為 fallback
 
 ---------------------
 
@@ -30,11 +31,10 @@ case e of
 
 轉換為
 
-let fallback_0 = other
-in case e of
-        A _ _ -> fallback_0
-        B _   -> 1
-        C     -> fallback_0
+case e of
+     A _ _ -> other
+     B _   -> 1
+     C     -> other
 -}
 
 module Desugar.Case.AltCompletion where
@@ -475,17 +475,11 @@ transExp (Case l expL altLs)
        if not (any isGADT altLs')
        then return (Case l expL' altLs')
        else do
-           fallbackName <- name l <$> freshVar (Ident l "fallback")
-           let fallbackVar = var l fallbackName
-               (maybeFallback, pairs) = mkPairs altLs'
-               fallbackE = fromMaybe defaultFallbackE maybeFallback
-               defaultFallbackE = app l (function l "Prelude.error") (strE l "matching failed")
+           let (fallbackE, pairs) = mkPairs altLs'
            fallbackE' <- transExp fallbackE
-           altLs'' <- completeAlts l fallbackVar pairs
-           return $ letE l [nameBind l fallbackName fallbackE']
-                           (Case l expL' altLs'')
-
-  where mkPairs alts = (listToMaybe $ extractRhs <$> wildcards, pairs) where
+           altLs'' <- completeAlts l fallbackE' pairs
+           return $ Case l expL' altLs''
+  where mkPairs alts = (head $ extractRhs <$> wildcards, pairs) where
             (wildcards, pairs) = partitionEithers $ map mkPair alts
 
         mkPair a@(Alt l patL rhsL maybeBindsL) =
