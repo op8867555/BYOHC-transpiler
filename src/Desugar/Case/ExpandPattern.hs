@@ -1,55 +1,26 @@
 {-
-這個 pass 會
+這個 pass 將會
+1, 把一個有 nested pattern 的 alt 展開
+2. 將每一個 case 補上一個 wildcard 的 alt 用來當作 default 的 fallback
 
-    1. 補上遺漏的 alt ，消去所有 wildcard
-    2. 調整 alt 的順序
+現在支援下列 pattern 的展開：
 
-方便轉成 scott-encoding
+* PVar
+* PApp
+* PWildCard
+* PLit
 
-----------------------
-
-pass 中所有出現的 case e of alts 需要滿足：
-
-e 的 type 要是 primitive type 或是 GADT ， GADT 時需滿足下列條件：
-
-    1. alts 的 pattern 要是 PApp 或是 PWildCard
-    2. PApp 中出現的 data constructor 不能重複
-    3. 一定要有一個 wildcard 的 alt 作為 fallback
-
----------------------
-
-假設有
-
-data T where
-    A :: T -> T -> T
-    B :: T -> T
-    C :: T
-
-case e of
-  C -> 1
-  _ -> other
-
-轉換為
-
-case e of
-     A _ _ -> other
-     B _   -> 1
-     C     -> other
 -}
 
-module Desugar.Case.AltCompletion where
+{-# LANGUAGE ViewPatterns #-}
+module Desugar.Case.ExpandPattern where
 import Desugar.Monad
 import Language.Haskell.Exts.Annotated
-import Debug.Trace
 
-import Control.Monad (guard)
-import Data.Maybe (listToMaybe, fromJust, fromMaybe)
-import Data.Either (partitionEithers)
-import Data.List (sortOn)
-import qualified Data.Map as M
+import Control.Monad (zipWithM, replicateM, void)
 
-desugarAltCompletion :: Module l -> DesugarM (Module l)
-desugarAltCompletion = transModule
+desugarExpandPattern :: Module l -> DesugarM (Module l)
+desugarExpandPattern = transModule
 
 transActivation :: Activation l -> DesugarM (Activation l)
 transActivation (ActiveFrom l int) = return (ActiveFrom l int)
@@ -468,62 +439,85 @@ transExp (If l expL expL1 expL2)
 transExp (MultiIf l guardedRhsLs)
   = do guardedRhsLs' <- mapM transGuardedRhs guardedRhsLs
        return (MultiIf l guardedRhsLs')
--- desugar: Case
+-- desugar:
 transExp (Case l expL altLs)
-  = do expL' <- transExp expL
+  = do
+       let defaultAlt = alt l (wildcard l) $
+               app l (function l "Prelude.error") (strE l "matching failed")
+       expL' <- transExp expL
        altLs' <- mapM transAlt altLs
        if not (any isGADT altLs')
        then return (Case l expL' altLs')
        else do
-           let (fallbackE, pairs) = mkPairs altLs'
-           fallbackE' <- transExp fallbackE
-           altLs'' <- completeAlts l fallbackE' pairs
-           return $ Case l expL' altLs''
-  where mkPairs alts = (head $ extractRhs <$> wildcards, pairs) where
-            (wildcards, pairs) = partitionEithers $ map mkPair alts
-
-        mkPair a@(Alt l patL rhsL maybeBindsL) =
-            case patL of
-                 PApp _l (UnQual l name) _pats -> Right (extractName name, a)
-                 PWildCard {} -> Left a
-                 _ -> error "desugarAltCompletion: pattern unsupported"
-
-        reorder conNames pairs = reordered where
-            reordered = unindex <$> sortOn getIndex indexed
-            conMap = M.fromList (zip conNames [1..])
-            indexed = map index pairs
-            index (n, a) = (fromJust $ M.lookup n conMap, (n, a))
-            (getIndex, unindex) = (fst, snd)
-
-        completeAlts ann fallback pairs = do
-            cons <- lookupCons $ fst . head $ pairs
-            let pairs' = reorder (fst <$> cons) pairs
-            gen ann fallback cons pairs'
-
-        extractRhs (Alt l patL (UnGuardedRhs _ exp) maybeBindsL) = exp
-
-        gen ann fallback cons@(c@(conName, argCount):cs) pairs@((n, a):ps)
-            | conName == n = do
-                    ps' <- gen ann fallback cs ps
-                    return (a:ps')
-            | otherwise = do
-                    let a' = complete ann fallback c
-                    ps' <- gen ann fallback cs pairs
-                    return (a':ps')
-        gen ann fallback cs [] = return $ map (complete ann fallback) cs
-        gen _ _ _ _ = return []
-
-        complete l fallback (conName, argCount) =
-            alt l
-                (pApp l
-                      (name l conName)
-                      (replicate argCount (wildcard l)))
-                fallback
-
-        isGADT (Alt l patL rhsL maybeBindsL) =
+           let alts = reverse altLs'
+           fs <- mapM (expandAlt expL') (defaultAlt : alts)
+           ns <- replicateM (length fs) $
+                   name l <$> freshVar (Ident l "alt")
+           let vs = map (\v -> var (ann v) v) ns
+               dummy = undefined
+               entry = last ns
+           fs' <- zipWithM ($) fs (dummy:vs)
+           return $ letE l (zipWith (nameBind l) ns fs')
+                           (var (ann entry) entry)
+  where
+      isGADT (Alt _ patL _ _) =
             case patL of
                  PApp{} -> True
                  _ -> False
+
+      caseE2 l e p r fb =
+          caseE l e [ alt l p r
+                    , alt l (wildcard l) fb
+                    ]
+
+      expandAlt e (Alt l p (UnGuardedRhs _ r) _) = expand e p r
+
+{-
+    假設有 case e of {p -> r} ，
+        在 f <- expand e p r
+    f 接受一個參數作為 fallback，
+    產生一個 case-expression 來展開一個 nested-pattern
+-}
+      expand :: Exp l -- exp
+             -> Pat l -- pattern
+             -> Exp l -- rhs
+             -> DesugarM (Exp l -> DesugarM (Exp l)) -- fallback to case
+      expand _ PVar{} rhsE = return . const $ return rhsE
+      expand e (PApp l qname pats) rhsE = do
+          (pvs, f) <- expands e pats rhsE
+          return $ \fallback -> do
+              f' <- f fallback
+              return $
+                  caseE2 (ann e) e (PApp l qname pvs) f' fallback
+      expand _ PWildCard{} rhsE = return . const $ return rhsE
+      expand e p@PLit{} rhsE =
+          return $ \fallback ->
+              return $
+                caseE2 (ann e) e p rhsE fallback
+
+      expands :: Exp l
+              -> [Pat l]
+              -> Exp l
+              -> DesugarM ([Pat l], Exp l -> DesugarM (Exp l))
+      expands e ps rhs = do
+          ns <- mapM rename ps
+          let pvs = zipWith (\n p -> pvar (ann p) n) ns ps
+              f0  = const $ return rhs
+          f <- foldrM folder f0 $ zip ns ps
+          return $ (,) pvs f
+        where
+          folder (n, p) f =
+              return $ \fallback -> do
+                  rhs' <- f fallback
+                  f' <- expand (var (ann p) n) p rhs'
+                  f' fallback
+
+      foldrM :: Monad m => (a -> b -> m b) -> b -> [a] -> m b
+      foldrM f d = foldr ((=<<) . f) (return d)
+
+      rename p = case p of
+                  PVar _ n -> return n
+                  _ -> name (ann p) <$> freshVar (Ident (ann p) "p")
 
 transExp (Do l stmtLs)
   = do stmtLs' <- mapM transStmt stmtLs
