@@ -32,6 +32,7 @@ import Prelude hiding (lookup)
 import qualified  Data.Map.Strict as M
 import Data.Map (Map)
 import Data.Maybe (fromMaybe)
+import Data.Char (isLower)
 
 type LocalEnv = Map (Name ()) String
 
@@ -1366,8 +1367,12 @@ transType locals (TyApp l typeL typeL1)
   = do typeL' <- transType locals typeL
        typeL1' <- transType locals typeL1
        return (TyApp l typeL' typeL1')
-transType locals (TyVar l nameL)
-  = do nameL' <- transName locals nameL
+-- desugar:
+transType locals v@(TyVar l nameL@(extractName -> n))
+-- FIXME: 小寫的 type var 直接當成 local variable 不 rename
+  | isLower . head $ n = return v
+  | otherwise =  do
+       nameL' <- transName locals nameL
        return (TyVar l nameL')
 transType locals (TyCon l qNameL)
   = do qNameL' <- transQName locals qNameL
