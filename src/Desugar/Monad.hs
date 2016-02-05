@@ -98,3 +98,5 @@ transTupleWith (fa, fb) (a, b) = do
     return (a', b')
 
 
+foldrM :: Monad m => (a -> b -> m b) -> b -> [a] -> m b
+foldrM f d = foldr ((=<<) . f) (return d)

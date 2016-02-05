@@ -518,9 +518,6 @@ transExp (Case l expL altLs)
                   f' <- expand (var (ann p) n) p rhs'
                   f' fallback
 
-      foldrM :: Monad m => (a -> b -> m b) -> b -> [a] -> m b
-      foldrM f d = foldr ((=<<) . f) (return d)
-
       rename p = case p of
                   PVar _ n -> return n
                   _ -> name (ann p) <$> freshVar (Ident (ann p) "p")
