@@ -446,9 +446,7 @@ transExp (Case l expL altLs)
                app l (function l "Prelude.error") (strE l "matching failed")
        expL' <- transExp expL
        altLs' <- mapM transAlt altLs
-       if not (any isGADT altLs')
-       then return (Case l expL' altLs')
-       else do
+       do
            let alts = reverse altLs'
            fs <- mapM (expandAlt expL') (defaultAlt : alts)
            ns <- replicateM (length fs) $
@@ -482,7 +480,13 @@ transExp (Case l expL altLs)
              -> Pat l -- pattern
              -> Exp l -- rhs
              -> DesugarM (Exp l -> DesugarM (Exp l)) -- fallback to case
-      expand _ PVar{} rhsE = return . const $ return rhsE
+--  var -> rhs => (\var -> rhsE) e
+      expand e (PVar l name) rhsE
+        | var l name =~= rhsE = return . const . return $ e
+        | var l name =~= e    = return . const . return $ rhsE
+        | otherwise =
+              return . const . return $
+                  app l (lamE l [pvar (ann name) name] rhsE) e
       expand e (PApp l qname pats) rhsE = do
           (pvs, f) <- expands e pats rhsE
           return $ \fallback -> do
@@ -494,6 +498,8 @@ transExp (Case l expL altLs)
           return $ \fallback ->
               return $
                 caseE2 (ann e) e p rhsE fallback
+      expand e (PParen l p) r =
+          expand e p r
 
       expands :: Exp l
               -> [Pat l]
