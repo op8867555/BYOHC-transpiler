@@ -12,8 +12,6 @@
         where-bindings
 * `FunBind l`:
         function binds
-* `Stmt`:
-        pattern guard, do-notation
 * `QualStmt`:
         list comprehension
 
@@ -572,10 +570,10 @@ transExp locals (Case l expL altLs)
        altLs' <- mapM (transAlt locals) altLs
        return (Case l expL' altLs')
 transExp locals (Do l stmtLs)
-  = do stmtLs' <- mapM (transStmt locals) stmtLs
+  = do (stmtLs', _) <- transStmts locals stmtLs
        return (Do l stmtLs')
 transExp locals (MDo l stmtLs)
-  = do stmtLs' <- mapM (transStmt locals) stmtLs
+  = do (stmtLs', _) <- transStmts locals stmtLs
        return (MDo l stmtLs')
 transExp locals (Tuple l boxed expLs)
   = do boxed' <- transBoxed locals boxed
@@ -782,8 +780,8 @@ transGadtDecl locals (GadtDecl l nameL maybeFieldDeclLs typeL)
 transGuardedRhs ::
                 LocalEnv -> GuardedRhs l -> DesugarM (GuardedRhs l)
 transGuardedRhs locals (GuardedRhs l stmtLs expL)
-  = do stmtLs' <- mapM (transStmt locals) stmtLs
-       expL' <- transExp locals expL
+  = do (stmtLs', locals') <- transStmts locals stmtLs
+       expL' <- transExp locals' expL
        return (GuardedRhs l stmtLs' expL')
 
 transIPBind :: LocalEnv -> IPBind l -> DesugarM (IPBind l)
@@ -1188,7 +1186,7 @@ transQualConDecl locals
 
 transQualStmt :: LocalEnv -> QualStmt l -> DesugarM (QualStmt l)
 transQualStmt locals (QualStmt l stmtL)
-  = do stmtL' <- transStmt locals stmtL
+  = do (stmtL', _) <- transStmt locals stmtL
        return (QualStmt l stmtL')
 transQualStmt locals (ThenTrans l expL)
   = do expL' <- transExp locals expL
@@ -1222,7 +1220,7 @@ transRPat locals (RPSeq l rPatLs)
        return (RPSeq l rPatLs')
 transRPat locals (RPGuard l patL stmtLs)
   = do patL' <- transPat locals patL
-       stmtLs' <- mapM (transStmt locals) stmtLs
+       (stmtLs', _) <- transStmts locals stmtLs
        return (RPGuard l patL' stmtLs')
 transRPat locals (RPCAs l nameL rPatL)
   = do nameL' <- transName locals nameL
@@ -1309,21 +1307,29 @@ transSplice locals (ParenSplice l expL)
   = do expL' <- transExp locals expL
        return (ParenSplice l expL')
 
--- TODO:
-transStmt :: LocalEnv -> Stmt l -> DesugarM (Stmt l)
+-- desugar:
+transStmts :: LocalEnv -> [Stmt l] -> DesugarM ([Stmt l], LocalEnv)
+transStmts locals stmts =
+    foldrM folder ([], locals) stmts
+  where
+    folder stmt (folded, locals) = do
+        (stmt', locals') <- transStmt locals stmt
+        return (stmt':folded, locals')
+-- desugar:
+transStmt :: LocalEnv -> Stmt l -> DesugarM (Stmt l, LocalEnv)
 transStmt locals (Generator l patL expL)
-  = do patL' <- transPat locals patL
-       expL' <- transExp locals expL
-       return (Generator l patL' expL')
+  = do (patL', locals') <- withPat locals patL
+       patL'' <- transPat locals' patL'
+       expL' <- transExp locals' expL
+       return (Generator l patL'' expL', locals')
 transStmt locals (Qualifier l expL)
   = do expL' <- transExp locals expL
-       return (Qualifier l expL')
+       return (Qualifier l expL', locals)
 transStmt locals (LetStmt l bindsL)
-  = do (bindsL', _) <- transBinds locals bindsL
-       return (LetStmt l bindsL')
+  = do (bindsL', locals') <- transBinds locals bindsL
+       return (LetStmt l bindsL', locals')
 transStmt locals (RecStmt l stmtLs)
-  = do stmtLs' <- mapM (transStmt locals) stmtLs
-       return (RecStmt l stmtLs')
+  = error "rename: RecStmt is not implemented"
 
 transTool :: LocalEnv -> Tool -> DesugarM Tool
 transTool locals GHC = return GHC

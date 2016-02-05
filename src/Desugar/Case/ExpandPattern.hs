@@ -468,7 +468,61 @@ transExp (Case l expL altLs)
                     , alt l (wildcard l) fb
                     ]
 
-      expandAlt e (Alt l p (UnGuardedRhs _ r) _) = expand e p r
+      expandAlt e (Alt l p rhs _) =
+          return $ \fallback -> do
+              f <- expandRhs rhs
+              rhsE <- f fallback
+              g <- expand e p rhsE
+              g fallback
+
+      expandRhs :: Rhs l -> DesugarM (Exp l -> DesugarM (Exp l))
+      expandRhs (UnGuardedRhs _ exp) = return $ const $ return exp
+      expandRhs (GuardedRhss l guardeds) =
+          return $ \fallback -> do
+             let guardeds' = reverse guardeds
+             fs <- mapM expandGuarded guardeds'
+             ns <- replicateM (length fs) $
+                     name l <$> freshVar (Ident l "guard")
+             let vs = map (\v -> var (ann v) v) ns
+                 entry = last ns
+             fs' <- zipWithM ($) fs (fallback : vs)
+             return $ letE l (zipWith (nameBind l) ns fs')
+                             (var (ann entry) entry)
+
+      expandGuarded :: GuardedRhs l -> DesugarM (Exp l -> DesugarM (Exp l))
+      expandGuarded (GuardedRhs l stmts exp) = expandStmts stmts exp
+
+      expandStmts :: [Stmt l]
+                  -> Exp l
+                  -> DesugarM (Exp l -> DesugarM (Exp l))
+      expandStmts stmts rhs = do
+          let f0  = const $ return rhs
+          foldrM folder f0 stmts
+        where
+          folder stmt f =
+              return $ \fallback -> do
+                  rhs' <- f fallback
+                  f' <- expandStmt stmt rhs'
+                  f' fallback
+
+      expandStmt :: Stmt l
+                 -> Exp l
+                 -> DesugarM (Exp l -> DesugarM (Exp l))
+      expandStmt (Generator l pat exp) rhs =
+          return $ \fallback -> do
+              f <- expand exp pat rhs
+              f fallback
+      expandStmt (Qualifier l exp) rhs =
+          return $ \fallback ->
+              return $
+                  caseE2 l exp
+                           (PApp l (UnQual l $ name l "Prelude.True") [])
+                           rhs
+                           fallback
+      expandStmt (LetStmt l binds) rhs =
+          return $ \fallback ->
+              transExp (Let l binds rhs)
+
 
 {-
     假設有 case e of {p -> r} ，
