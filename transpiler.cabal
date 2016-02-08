@@ -21,6 +21,7 @@ library
                      , Desugar.If
                      , Desugar.Where
                      , Desugar.GADT
+                     , Desugar.Lit
                      , Desugar.Case
                      , Desugar.Case.ExpandPattern
                      , Desugar.Case.AltCompletion
