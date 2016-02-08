@@ -27,11 +27,15 @@ emptyDesugarState :: DesugarState
 emptyDesugarState =
     DesugarState { cons = M.fromList [ (prelude "True", prelude "Bool")
                                      , (prelude "False", prelude "Bool")
+                                     , (prelude "Cons", prelude "List")
+                                     , (prelude "Nil", prelude "List")
                                      ]
                  , dataTypes =
                      M.fromList
                          [(prelude "Bool", [ (prelude "True", 0)
-                                           , (prelude "False", 0)])]
+                                           , (prelude "False", 0)])
+                         ,(prelude "List", [ (prelude "Cons", 2)
+                                           , (prelude "Nil", 0)])]
                  , freshCount = 0
                  , globals = M.empty
                  , moduleName = ""

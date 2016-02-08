@@ -37,26 +37,36 @@ type LocalEnv = Map (Name ()) String
 desugarRename :: Module l -> DesugarM (Module l)
 desugarRename = transModule initLocals
     -- TODO: 在實作模組之前，將 Prelude 的名字直接寫在
-    where initLocals =
-            M.fromList $ syms ++ idents
-          idents = map ide [ "putStrLn"
-                           , "putChar"
-                           , "const"
-                           , "fst"
-                           , "snd"
-                           , "div"
-                           , "mod"
-                           , "head"
-                           , "tail"
-                           , "True"
-                           , "False"]
-          syms = map sym [ "+"
-                         , "-"
-                         , "*"
-                         , "=="
-                         ]
-          ide a = (Ident () a, "Prelude." ++ a)
-          sym a = (Symbol () a, "Prelude." ++ a)
+    where initLocals = M.fromList $ syms ++ idents
+          idents = concatMap ide [ "putStrLn"
+                                 , "putChar"
+                                 , "const"
+                                 , "fst"
+                                 , "snd"
+                                 , "div"
+                                 , "mod"
+                                 , "head"
+                                 , "tail"
+                                 , "True"
+                                 , "False"
+                                 , "Cons"
+                                 , "Nil"
+                                 ]
+          syms = concatMap sym [ "+"
+                               , "-"
+                               , "*"
+                               , "=="
+                               , "<"
+                               , "<="
+                               , ">"
+                               , ">="
+                               ]
+          p a = "Prelude." ++ a
+          ide a = [ (Ident () a, p a)
+                  , (Ident () (p a), p a) ]
+          sym a = [ (Symbol () a, p a)
+                  , (Symbol () (p a), p a) ]
+
 lookup :: Name l -> LocalEnv -> DesugarM String
 lookup name@(extractName -> n) locals = do
     tryGlobal <- lookupGlobal name
