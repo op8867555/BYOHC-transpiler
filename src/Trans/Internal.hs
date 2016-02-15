@@ -133,7 +133,7 @@ gadtCase exp alts = do
                    PApp l qname pats ->
                        lambda <$> mapM transPat pats <*> transRhs rhs
                    PList l [] -> transRhs rhs
-          transPApp (PList l []) = return ("Prelude.cons", [])
+          transPApp (PList l []) = return ("Prelude.Cons", [])
 
 intCase :: Exp l -> [Alt l] -> Transpiler (Expr a)
 intCase exp alts = do
@@ -171,13 +171,13 @@ transExp (Lit l literal) =
     return $ case literal of
                   Char l c s -> TChar c
                   Int l i s-> TInt i
-                  String l s s' -> foldr ((\c cs -> apply (TVar "Prelude.cons") [c, cs]) . TChar)
-                                         (TVar "Prelude.nil")
+                  String l s s' -> foldr ((\c cs -> apply (TVar "Prelude.Cons") [c, cs]) . TChar)
+                                         (TVar "Prelude.Nil")
                                          s
 transExp (List l xs) = do
     xs' <- mapM transExp xs
-    return $ foldr (\x xs -> apply (TVar "Prelude.cons") [x, xs])
-                   (TVar "Prelude.nil")
+    return $ foldr (\x xs -> apply (TVar "Prelude.Cons") [x, xs])
+                   (TVar "Prelude.Nil")
                    xs'
 transExp (Paren l exp) = transExp exp
 transExp (Con l qname) = TVar <$> transQName qname
@@ -217,7 +217,7 @@ transDeclHead (DHead l name) = transName name
 
 transQName :: QName l -> Transpiler TName
 transQName (UnQual l name) = transName name
-transQName (Special l (Cons l')) = return "Prelude.cons"
+transQName (Special l (Cons l')) = return "Prelude.Cons"
 
 transQOp :: QOp l -> Transpiler TName
 transQOp (QVarOp l qname) = transQName qname
