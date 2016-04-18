@@ -100,6 +100,9 @@ withPat locals (PParen l pat) =
 withPat locals (PApp l qname pats) = do
     (pats', locals') <- withPats locals pats
     return (PApp l qname pats', locals')
+withPat locals (PIrrPat l pat) = do
+    (pat', locals') <- withPat locals pat
+    return (PIrrPat l pat', locals')
 withPat locals p@PLit{} = return (p, locals)
 withPat locals p@PWildCard{} = return (p, locals)
 withPat locals p = error $ show $ void p

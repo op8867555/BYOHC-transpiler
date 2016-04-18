@@ -12,12 +12,11 @@
 
 -}
 
-{-# LANGUAGE ViewPatterns #-}
 module Desugar.Case.ExpandPattern where
 import Desugar.Monad
 import Language.Haskell.Exts.Annotated
 
-import Control.Monad (zipWithM, replicateM, void)
+import Control.Monad (zipWithM, replicateM, void, (>=>))
 
 desugarExpandPattern :: Module l -> DesugarM (Module l)
 desugarExpandPattern = transModule
@@ -554,6 +553,22 @@ transExp (Case l expL altLs)
                 caseE2 (ann e) e p rhsE fallback
       expand e (PParen l p) r =
           expand e p r
+{-
+    (~p -> rhsE) e => (\ x_1 x_2 ... x_n -> e) (\p -> x_1) ... (\p -> x_n)
+        where x_1 ... x_n are variables appears in p
+-}
+      expand e (PIrrPat l p0) rhsE = do
+          errN <- name l <$> freshVar (Ident l "error")
+          let ns  = pats p0
+              vs  = map (\n -> var (ann n) n) ns
+              err = app l (function l "Prelude.error")
+                           (strE l "irrefutable pattern matching failed")
+              errE = var l errN
+              f   = lamE l ((\n -> pvar (ann n) n) <$> ns) rhsE
+          vs <- mapM (expand e p0 >=> ($ errE)) vs
+          return $ \fallback -> return $
+              letE l [nameBind l errN err] $
+                  appFun (ann <$> ns) f vs
 
       expands :: Exp l
               -> [Pat l]
@@ -575,6 +590,14 @@ transExp (Case l expL altLs)
       rename p = case p of
                   PVar _ n -> return n
                   _ -> name (ann p) <$> freshVar (Ident (ann p) "p")
+
+      pats (PVar l n)        = [n]
+      pats PLit {}           = []
+      pats (PApp l qname ps) = concatMap pats ps
+      pats (PParen _ p)      = pats p
+      pats PWildCard {}      = []
+      pats (PIrrPat _ p)     = pats p
+      pats _                 = error "pats"
 
 transExp (Do l stmtLs)
   = do stmtLs' <- mapM transStmt stmtLs

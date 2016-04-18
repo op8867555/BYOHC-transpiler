@@ -23,6 +23,7 @@ withPat (PVar l name) = do
     addGlobal name qualified
 withPat (PParen l pat) = withPat pat
 withPat (PApp l qname pats) = withPats pats
+withPat (PIrrPat l p) = withPat p
 withPat p = error $ show $ void p
 
 withPats :: [Pat SrcSpanInfo] -> DesugarM ()
